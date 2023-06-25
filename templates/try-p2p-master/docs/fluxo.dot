@@ -1,0 +1,8 @@
+digraph G {
+  "Servidor de Controle" -> "Servidor de Controle" [label = "  1. Listen"]
+  "Peer 1" -> "Servidor de Controle" [label = "  2. Registra um arquivo"]
+  "Peer 1" -> "Peer 1" [label=" 3. Listen"]
+  "Peer 2" -> "Servidor de Controle" [label = " 4. Procura um arquivo"]
+  "Servidor de Controle" -> "Peer 2" [label = " 5. Retorna Ip e Porta do peer com o arquivo"]
+  "Peer 2" -> "Peer 1" [label= " 6. Busca os dados do arquivo"]
+}
