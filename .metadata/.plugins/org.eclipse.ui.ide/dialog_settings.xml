@@ -6,8 +6,19 @@
 		<item key="SmartImportRootWizardPage.STORE_NESTED_PROJECTS" value="true"/>
 		<item key="SmartImportRootWizardPage.STORE_CONFIGURE_NATURES" value="true"/>
 		<list key="org.eclipse.ui.internal.wizards.datatransfer.SmartImportRootWizardPage.knownSources">
+			<item value="C:\Workspace\UFABC\ufabc-distributed-system\templates\Napster-P2P-master-Java"/>
+			<item value="C:\Workspace\UFABC\ufabc-distributed-system\project"/>
+			<item value="C:\Workspace\UFABC\UFABC_RC\1_Protocol_UDP"/>
+			<item value="C:\Workspace\UFABC\UFABC_RC\2_Protocol_TCP"/>
 			<item value="C:\Workspace\UFABC\UFABC_RC"/>
 			<item value="C:\Workspace\UFABC\ufabc-distributed-system"/>
 		</list>
+	</section>
+	<section name="SaveAsDialogSettings">
+		<item key="DIALOG_X_ORIGIN" value="619"/>
+		<item key="DIALOG_Y_ORIGIN" value="91"/>
+		<item key="DIALOG_WIDTH" value="700"/>
+		<item key="DIALOG_HEIGHT" value="642"/>
+		<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
 	</section>
 </section>

@@ -1,19 +1,41 @@
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.rmi.RemoteException;
+import java.util.List;
 import java.util.Scanner;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.net.ServerSocket;
+import java.io.IOException;
+
 
 public class Peer {
 	private static final String SERVER_HOST = "localhost";
 	private static final int SERVER_PORT = 1099;
-	//String serverHost = "localhost"; // substitua pelo endereço do servidor
-	//int serverPort = 1099; // substitua pela porta do servidor
+	// String serverHost = "localhost"; // substitua pelo endereço do servidor
+	// int serverPort = 1099; // substitua pela porta do servidor
 
 	public static void main(String[] args) {
+		// Obter o endereço IP
+		String ip = "";
+		try {
+		    InetAddress address = InetAddress.getLocalHost();
+		    ip = address.getHostAddress();
+		} catch (UnknownHostException e) {
+		    e.printStackTrace();
+		}
+
+		// Obter a porta
+		int porta = 0;
+		try (ServerSocket socket = new ServerSocket(0)) {
+		    porta = socket.getLocalPort();
+		} catch (IOException e) {
+		    e.printStackTrace();
+		}
+		
 		try {
 			// Obtém a referência para o registro RMI do servidor
 			Registry registry = LocateRegistry.getRegistry(SERVER_HOST, SERVER_PORT);
-			//Registry registry = LocateRegistry.getRegistry(serverHost, serverPort);
+			// Registry registry = LocateRegistry.getRegistry(serverHost, serverPort);
 
 			// Obtém a referência para o objeto remoto FileTransfer no servidor
 			FileTransfer fileTransfer = (FileTransfer) registry.lookup("FileTransfer");
@@ -30,40 +52,75 @@ public class Peer {
 				System.out.println("0. Sair");
 				System.out.print("Escolha uma opção: ");
 				int option = scanner.nextInt();
+				List<String> extensoesValidas = List.of(".doc", ".pdf", ".txt", "mp3", "mp4"); // Exemplo de extensões válidas
 
 				switch (option) {
 				case 1:
 					// Requisição JOIN
 					System.out.print("Digite o nome do peer para se juntar: ");
 					String peerName = scanner.next();
-					fileTransfer.join(peerName);
-					System.out.println("Requisição JOIN enviada ao servidor.");
-					
-					FileTransfer server1 = (FileTransfer) registry.lookup("FileTransfer");
-					boolean joinResult = server1.join(peerName);
-			        if (joinResult == false) {
-			            System.out.println("JOIN_OK");
-			        } else if (joinResult == true) {
-			            System.out.println("JOIN_NOK");
-			        }
+					System.out.print("Digite o nome do arquivo a ser enviado: ");
+					String fileName = scanner.next();
 
-					break;
+				    boolean extensaoValida1 = false;
+					for (String extensao : extensoesValidas) {
+						if (fileName.endsWith(extensao)) {
+							extensaoValida1 = true;
+							break;
+						}
+					}
+
+					if (extensaoValida1) {
+						fileTransfer.join(peerName, fileName);
+
+						FileTransfer server1 = (FileTransfer) registry.lookup("FileTransfer");
+						boolean joinResult = server1.join(peerName, fileName);
+						if (joinResult == true) { //JOIN_OK
+							System.out.println();
+							System.out.println("Sou peer " + ip + " : " + porta + " com arquivos " + fileName + ".");
+						} else if (joinResult == false) {
+							System.out.println();
+							System.out.println("JOIN_NOK"); //JOIN_NOK
+						}
+						break;
+
+					} else {
+						System.out.println("Erro: O nome do arquivo não possui uma extensão válida ou a extensão utilizada não é suportada.");
+						break;
+					}
 
 				case 2:
 					// Requisição SEARCH
 					System.out.print("Digite o nome do arquivo a ser pesquisado: ");
 					String filename = scanner.next();
-					fileTransfer.search(filename);
-					System.out.println("Requisição SEARCH enviada ao servidor.");
 					
-					FileTransfer server2 = (FileTransfer) registry.lookup("FileTransfer");
-					boolean searchResult = server2.search(filename);
-			        if (searchResult == false) {
-			            System.out.println("Arquivo não encontrado em nenhum peer.");
-			        } else if (searchResult == true) {
-			            System.out.println("Arquivo encontrado nos seguintes peers: ");
-			        }
-					break;
+					boolean extensaoValida2 = false;
+					for (String extensao : extensoesValidas) {
+						if (filename.endsWith(extensao)) {
+							extensaoValida2 = true;
+							break;
+						}
+					}
+					
+					if (extensaoValida2) {
+						fileTransfer.search(filename);
+						System.out.println("Requisição SEARCH enviada ao servidor.");
+
+						FileTransfer server2 = (FileTransfer) registry.lookup("FileTransfer");
+
+						List<String> searchResult = server2.search(filename);
+
+						if (searchResult.isEmpty()) {
+							System.out.println("Arquivo não encontrado em nenhum peer.");
+						} else {
+							System.out.println("Arquivo encontrado nos seguintes peers: " + searchResult);
+						}
+						break;
+						
+					} else {
+						System.out.println("Erro: O nome do arquivo não possui uma extensão válida ou a extensão utilizada não é suportada.");
+						break;
+					}
 
 				case 3:
 					// Requisição UPDATE
@@ -84,7 +141,9 @@ public class Peer {
 					break;
 				}
 			}
-		} catch (Exception e) {
+		} catch (
+
+		Exception e) {
 			e.printStackTrace();
 		}
 	}
