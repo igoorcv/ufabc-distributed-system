@@ -1,3 +1,7 @@
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -8,14 +12,18 @@ import java.util.List;
 import java.util.Map;
 
 interface FileTransfer extends java.rmi.Remote {
-	byte[] downloadFile(String filename) throws RemoteException;
+	byte[] downloadFile(String peerName, String fileName, String ip, int porta) throws RemoteException;
 
-	boolean join(String peerName, String fileName) throws RemoteException;
+	List<String> search(String fileName, String ip, int porta) throws RemoteException;
 
-	// boolean search(String fileName) throws RemoteException;
-	List<String> search(String fileName) throws RemoteException;
+	boolean join(String peerName, String fileName, String ip, int porta) throws RemoteException;
 
-	void update(String filename) throws RemoteException;
+	boolean update(String filename) throws RemoteException;
+
+	// void requestDownload(String peerName, String fileName) throws
+	// RemoteException;
+
+	void receiveFile(String peerName, String fileName, byte[] fileData) throws RemoteException;
 }
 
 class PeerInfo {
@@ -59,70 +67,6 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
 	private List<PeerInfo> peers;
 	private Map<String, String> nameFiles;
 
-	protected FileTransferImpl() throws RemoteException {
-		super();
-		peers = new ArrayList<>();
-		nameFiles = new HashMap<>();
-	}
-
-	public byte[] downloadFile(String filename) throws RemoteException {
-		// Lógica para download do arquivo
-		return null;
-	}
-
-	public boolean join(String peerName, String fileName) throws RemoteException {
-		System.out.println("Peer " + peerName + " se juntou ao servidor com o arquivo " + fileName);
-		//System.out.println();
-		PeerInfo peer = getPeerByName(peerName);
-
-		if (peer != null) {
-			System.out.println("não adicionei, gatinho");
-			return false;
-
-		} else {
-
-			PeerInfo newPeer = new PeerInfo(peerName);
-			newPeer.addFile(fileName);
-			peers.add(newPeer);
-			nameFiles.put(peerName, fileName);
-			// return true;
-		}
-		//Não dá pra listar tudo aqui dentro, apenas chamando por fora. O que dá pra fazer é listar o que é cadastrado.
-		// Imprimir a lista de peers e nameFiles
-		/*
-		System.out.println("--- Lista de Peers ---");
-		for (PeerInfo p : peers) {
-			System.out.println("Peer: " + p.getPeerName(peerName));
-			System.out.println("Arquivo: " + nameFiles.get(p.getFileName(fileName)));
-			System.out.println();
-			break;
-		}
-		*/
-
-		return true;
-	}
-	
-	
-
-	public List<String> search(String fileName) throws RemoteException {
-		// public boolean search(String fileName) throws RemoteException {
-		List<String> peersWithFile = new ArrayList<>();
-
-		for (PeerInfo peer : peers) {
-			if (peer.hasFile(fileName)) {
-				peersWithFile.add(peer.getFileName(fileName));
-			}
-		}
-
-		// return !peersWithFile.isEmpty();
-
-		return peersWithFile;
-	}
-
-	public void update(String filename) throws RemoteException {
-		// Lógica para atualização do arquivo
-	}
-
 	private PeerInfo getPeerByName(String peerName) {
 		for (PeerInfo peer : peers) {
 			if (peer.getPeerName(peerName).equals(peerName)) {
@@ -131,25 +75,99 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
 		}
 		return null; // Retorna null caso o peer não seja encontrado
 	}
+
+	protected FileTransferImpl() throws RemoteException {
+		super();
+		peers = new ArrayList<>();
+		nameFiles = new HashMap<>();
+	}
+
+	public boolean join(String peerName, String fileName, String ip, int porta) throws RemoteException {
+		System.out.println("Peer " + ip + ":" + porta + " adicionado com arquivos " + fileName + ".");
+		PeerInfo peer = getPeerByName(peerName);
+
+		if (peer != null) {
+			System.out.println("Arquivos não adicionados.");
+			return false;
+
+		} else {
+
+			PeerInfo newPeer = new PeerInfo(peerName);
+			newPeer.addFile(fileName);
+			peers.add(newPeer);
+			nameFiles.put(peerName, fileName);
+		}
+
+		return true;
+	}
+
+	public List<String> search(String fileName, String ip, int porta) throws RemoteException {
+		System.out.println("Peer " + ip + ":" + porta + " solicitou arquivo " + fileName + ".");
+		List<String> peersWithFile = new ArrayList<>();
+
+		for (PeerInfo peer : peers) {
+			if (peer.hasFile(fileName)) {
+				peersWithFile.add(peer.getFileName(fileName));
+			}
+		}
+		return peersWithFile;
+	}
+	
+
+	public boolean update(String filename) throws RemoteException {
+		return false;
+		// Lógica para atualização do arquivo
+	}
+
+	public byte[] downloadFile(String peerName, String fileName, String ip, int porta) throws RemoteException {
+		File file = new File(peerName + "_" + fileName);
+
+		try {
+			FileInputStream fileInputStream = new FileInputStream(file);
+			byte[] fileData = new byte[(int) file.length()];
+			fileInputStream.read(fileData);
+			fileInputStream.close();
+
+			return fileData;
+		} catch (Exception e) {
+			System.err.println("Erro ao ler o arquivo: " + e.toString());
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	public void receiveFile(String peerName, String fileName, byte[] fileData) throws RemoteException {
+		try {
+            FileOutputStream fileOutputStream = new FileOutputStream(peerName + "_" + fileName);
+            fileOutputStream.write(fileData);
+            fileOutputStream.close();
+        } catch (Exception e) {
+            System.err.println("Erro ao receber o arquivo: " + e.toString());
+            e.printStackTrace();
+        }
+		
+		System.out.println("Arquivo " + fileName + " recebido do peer " + peerName);
+	}
 }
 
 public class CentralServer {
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws NotBoundException {
 		try {
-			// Inicializar o registro RMI
-			Registry registry = LocateRegistry.createRegistry(1099);
+            // Inicializar o registro RMI
+            Registry registry = LocateRegistry.createRegistry(1099);
 
-			// Criar uma instância do objeto remoto
-			FileTransfer fileTransfer = new FileTransferImpl();
+            // Criar uma instância do objeto remoto
+            FileTransfer fileTransfer = new FileTransferImpl();
 
-			// Vincular o objeto remoto ao registro
-			registry.rebind("FileTransfer", fileTransfer);
+            // Vincular o objeto remoto ao registro
+            registry.rebind("FileTransfer", fileTransfer);
 
-			System.out.println("Servidor iniciado. Aguardando requisições...");
-
-		} catch (RemoteException e) {
-			e.printStackTrace();
-		}
+            System.out.println("Servidor iniciado. Aguardando requisições...");
+            System.out.println();
+        } catch (Exception e) {
+            System.err.println("Erro no servidor: " + e.toString());
+            e.printStackTrace();
+        }
 	}
 }

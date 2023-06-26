@@ -12,7 +12,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 
-public class Peer {
+public class peer_test {
 	private static final String SERVER_HOST = "localhost";
 	private static final int SERVER_PORT = 1099;
 	
