@@ -12,8 +12,39 @@ interface FileTransfer extends java.rmi.Remote {
     void update(String filename) throws RemoteException;
 }
 
+class Peer {
+    private String name;
+    private List<String> files;
+
+    public Peer(String name) {
+        this.name = name;
+        this.files = new ArrayList<>();
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void addFile(String fileName) {
+        files.add(fileName);
+    }
+
+    public boolean hasFile(String fileName) {
+        return files.contains(fileName);
+    }
+}
+
 class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
     private List<String> peers;
+    
+    private Peer getPeerByName(String peerName) {
+        for (Peer peer : peers) {
+            if (peer.getName().equals(peerName)) {
+                return peer;
+            }
+        }
+        return null; // Retorna null caso o peer não seja encontrado
+    }
 
     protected FileTransferImpl() throws RemoteException {
         super();
@@ -26,22 +57,7 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
         return null;
     }
     
-    /*
-    public void join(String peerName) throws RemoteException {
-        System.out.println("Peer " + peerName + " se juntou ao servidor.");
-        this.peers.add(peerName);
-        
-        if (peers.contains(peerName)){
-        	return "JOIN_OK";
-        	
-        } else {
-        	peers.add(peerName);
-        	return "JOIN_OK";
-        }
-        
-    }
-    */
-    
+    //JOIN
     public boolean join(String peerName) throws RemoteException {
     	System.out.println("Peer " + peerName + " se juntou ao servidor.");
         if (peers.contains(peerName)) {
@@ -52,17 +68,35 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
         }
     }
 
+    //SEARCH
     public boolean search(String filename) throws RemoteException {
         // Lógica para busca do arquivo
-        return false;
+    	List<String> peersWithFile = new ArrayList<>();
+
+        for (String peerName : peers) {
+        	Peer peer = getPeerByName(peerName);
+            if (peer.hasFile(filename)) {
+                peersWithFile.add(peerName);
+            }
+        }
+
+        if (!peersWithFile.isEmpty()) {
+            String result = "Arquivo encontrado nos seguintes peers: ";
+            result += String.join(", ", peersWithFile);
+            return true;
+        } else {
+            return false;
+        }
     }
 
+    //UPDATE
     public void update(String filename) throws RemoteException {
         // Lógica para atualização do arquivo
     }
 }
 
 public class CentralServer {
+	
     public static void main(String[] args) {
         try {
             // Inicializar o registro RMI

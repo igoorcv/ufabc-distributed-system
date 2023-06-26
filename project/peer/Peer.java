@@ -39,8 +39,8 @@ public class Peer {
 					fileTransfer.join(peerName);
 					System.out.println("Requisição JOIN enviada ao servidor.");
 					
-					FileTransfer server = (FileTransfer) registry.lookup("FileTransfer");
-					boolean joinResult = server.join(peerName);
+					FileTransfer server1 = (FileTransfer) registry.lookup("FileTransfer");
+					boolean joinResult = server1.join(peerName);
 			        if (joinResult == false) {
 			            System.out.println("JOIN_OK");
 			        } else if (joinResult == true) {
@@ -53,12 +53,16 @@ public class Peer {
 					// Requisição SEARCH
 					System.out.print("Digite o nome do arquivo a ser pesquisado: ");
 					String filename = scanner.next();
-					boolean found = fileTransfer.search(filename);
-					if (found) {
-						System.out.println("O arquivo está disponível no servidor.");
-					} else {
-						System.out.println("O arquivo não foi encontrado no servidor.");
-					}
+					fileTransfer.search(filename);
+					System.out.println("Requisição SEARCH enviada ao servidor.");
+					
+					FileTransfer server2 = (FileTransfer) registry.lookup("FileTransfer");
+					boolean searchResult = server2.search(filename);
+			        if (searchResult == false) {
+			            System.out.println("Arquivo não encontrado em nenhum peer.");
+			        } else if (searchResult == true) {
+			            System.out.println("Arquivo encontrado nos seguintes peers: ");
+			        }
 					break;
 
 				case 3:
