@@ -1,0 +1,164 @@
+import java.io.*;
+import java.net.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+public class peer {
+    private String IP;
+    private int port;
+    private String storage;
+    private ServerSocket serverSocket;
+    private String s_IP = "127.0.0.1";
+    private int s_port = 51877; //1099
+
+    public peer(String IP, int port, String storage) throws IOException {
+        this.IP = IP;
+        this.port = port;
+        this.storage = storage;
+        this.serverSocket = new ServerSocket(0); // random port
+        this.port = serverSocket.getLocalPort();
+        System.out.println("Peer started at IP: " + this.IP + " Port: " + this.port);
+    }
+
+    public void listen() {
+        while (true) {
+            try {
+                Socket clientSocket = serverSocket.accept();
+                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                String data = in.readLine();
+                String[] dataArray = data.split(" ");
+                if (dataArray[0].equals("DOWNLOAD")) {
+                    String file = dataArray[1];
+                    System.out.printf("Peer %s:%d solicitou arquivo %s%n", clientSocket.getInetAddress().getHostAddress(), clientSocket.getPort(), file);
+                    sendFile(clientSocket, file);
+                }
+                clientSocket.close();
+            } catch (IOException e) {
+            	System.out.println("TESTE 3");
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void register() throws IOException {
+        Socket socket = new Socket(s_IP, s_port);
+        List<String> files = getMyFiles();
+        String filesString = String.join(" ", files).replace("[", "").replace("]", "").replace("\"", "").replace(",", "").replace("'", "");
+        String data = String.format("JOIN %s %d %s", IP, port, filesString);
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        out.println(data);
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        String response = in.readLine();
+        if (response.equals("JOIN_OK")) {
+            System.out.printf("Sou peer %s:%d com arquivos %s%n", IP, port, filesString);
+        }
+        socket.close();
+    }
+
+    public void search(String file) throws IOException {
+        Socket socket = new Socket(s_IP, s_port);
+        String data = "SEARCH " + file;
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        out.println(data);
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        String response = in.readLine();
+        response = response.substring(response.indexOf("{") + 1, response.lastIndexOf("}"));
+        String[] responseArray = response.split(", ");
+        List<String> matchingPeers = new ArrayList<>();
+        for (String str : responseArray) {
+            if (str.contains("matching_peers")) {
+                String matchingPeersString = str.substring(str.indexOf("[") + 1, str.lastIndexOf("]"));
+                matchingPeers = Arrays.asList(matchingPeersString.split(", "));
+            } else if (str.contains("response")) {
+                String responseString = str.substring(str.indexOf("\"") + 1, str.lastIndexOf("\""));
+                if (responseString.equals("SEARCH_OK")) {
+                    System.out.println("Peers com arquivo solicitado: " + String.join(", ", matchingPeers));
+                }
+            }
+        }
+        socket.close();
+    }
+
+    public List<String> getMyFiles() {
+        List<String> fileNames = new ArrayList<>();
+        File directory = new File(storage);
+        File[] files = directory.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile()) {
+                    fileNames.add(file.getName());
+                }
+            }
+        }
+        return fileNames;
+    }
+
+    public void download(String p_IP, int p_port, String file) throws IOException {
+        Socket socket = new Socket(p_IP, p_port);
+        String data = "DOWNLOAD " + file;
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        out.println(data);
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        String response = in.readLine();
+        receiveFile(socket, response, file);
+        socket.close();
+    }
+
+    public void sendFile(Socket socket, String file) throws IOException {
+        try (FileInputStream fileInputStream = new FileInputStream(new File(storage, file));
+             BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+             OutputStream outputStream = socket.getOutputStream()) {
+            outputStream.write("DOWNLOAD_OK\n".getBytes());
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = bufferedInputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+        } catch (IOException e) {
+            socket.getOutputStream().write("DOWNLOAD_FAIL\n".getBytes());
+        }
+    }
+
+    public void receiveFile(Socket socket, String response, String file) throws IOException {
+        if (response.equals("DOWNLOAD_OK")) {
+            try (FileOutputStream fileOutputStream = new FileOutputStream(new File(storage, file));
+                 BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
+                 InputStream inputStream = socket.getInputStream()) {
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    bufferedOutputStream.write(buffer, 0, bytesRead);
+                }
+                System.out.printf("Arquivo %s baixado com sucesso na pasta %s%n", file, storage);
+                update();
+            }
+        } else {
+            System.out.printf("Falha ao receber arquivo %s%n", file);
+        }
+        socket.close();
+    }
+
+    public void update() throws IOException {
+        Socket socket = new Socket(s_IP, s_port);
+        List<String> files = getMyFiles();
+        String filesString = String.join(" ", files).replace("[", "").replace("]", "").replace("\"", "").replace(",", "").replace("'", "");
+        String data = String.format("UPDATE %s %d %s", IP, port, filesString);
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        out.println(data);
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        String response = in.readLine();
+        if (response.equals("UPDATE_OK")) {
+            socket.close();
+        } else {
+            System.out.println("Falha ao atualizar arquivos");
+            socket.close();
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        peer peer = new peer("127.0.0.1", 0, "/path/to/storage");
+        peer.register();
+        peer.listen();
+    }
+}
