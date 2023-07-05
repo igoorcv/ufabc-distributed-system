@@ -1,0 +1,50 @@
+import java.io.*;
+import java.net.*;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
+
+interface FileTransfer extends Remote {
+    byte[] downloadFile(String filename) throws RemoteException;
+}
+
+class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
+    protected FileTransferImpl() throws RemoteException {
+        super();
+    }
+
+    public byte[] downloadFile(String filename) throws RemoteException {
+        try {
+            File file = new File(filename);
+            FileInputStream fis = new FileInputStream(file);
+            byte[] fileData = new byte[(int) file.length()];
+            fis.read(fileData);
+            fis.close();
+            return fileData;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+}
+
+public class CentralServer {
+    public static void main(String[] args) {
+        try {
+            // Inicializar o registro RMI
+            Registry registry = LocateRegistry.createRegistry(1099);
+
+            // Criar uma instância do objeto remoto
+            FileTransfer fileTransfer = new FileTransferImpl();
+
+            // Vincular o objeto remoto ao registro
+            registry.rebind("FileTransfer", fileTransfer);
+
+            System.out.println("Servidor iniciado. Aguardando requisições...");
+
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+}

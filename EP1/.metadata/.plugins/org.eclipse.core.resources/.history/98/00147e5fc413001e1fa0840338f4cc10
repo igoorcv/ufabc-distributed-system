@@ -1,0 +1,38 @@
+import java.io.*;
+import java.net.*;
+
+public class Peer {
+    public static void main(String[] args) {
+        // Peer A (Cliente)
+        try {
+            // Conectar ao Peer B (Servidor)
+            Socket socket = new Socket("localhost", 8080);
+            System.out.println("Conectado ao Peer B.");
+
+            // Enviar o nome do arquivo a ser transferido
+            String filename = "arquivo.txt";
+            OutputStream outputStream = socket.getOutputStream();
+            PrintWriter writer = new PrintWriter(outputStream, true);
+            writer.println(filename);
+
+            // Enviar o arquivo
+            FileInputStream fileInputStream = new FileInputStream(filename);
+            OutputStream fileOutputStream = socket.getOutputStream();
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                fileOutputStream.write(buffer, 0, bytesRead);
+            }
+            fileOutputStream.flush();
+            fileOutputStream.close();
+            fileInputStream.close();
+            System.out.println("Arquivo enviado com sucesso.");
+
+            // Fechar a conexão
+            socket.close();
+            System.out.println("Conexão fechada.");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}

@@ -1,0 +1,209 @@
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.util.List;
+import java.util.Scanner;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+
+public class Peer {
+	private static final String SERVER_HOST = "localhost";
+	private static final int SERVER_PORT = 1099;
+	
+	
+
+	public static void main(String[] args) {
+		// Obter o endereço IP
+		String ip = "";
+		try {
+		    InetAddress address = InetAddress.getLocalHost();
+		    ip = address.getHostAddress();
+		} catch (UnknownHostException e) {
+		    e.printStackTrace();
+		}
+
+		// Obter a porta
+		int porta = 0;
+		try (ServerSocket socket = new ServerSocket(0)) {
+		    porta = socket.getLocalPort();
+		} catch (IOException e) {
+		    e.printStackTrace();
+		}
+		
+		try {
+			// Obtém a referência para o registro RMI do servidor
+			Registry registry = LocateRegistry.getRegistry(SERVER_HOST, SERVER_PORT);
+			// Registry registry = LocateRegistry.getRegistry(serverHost, serverPort);
+
+			// Obtém a referência para o objeto remoto FileTransfer no servidor
+			FileTransfer fileTransfer = (FileTransfer) registry.lookup("FileTransfer");
+
+			// Cria um objeto Scanner para receber as entradas do usuário
+			Scanner scanner = new Scanner(System.in);
+
+			while (true) {
+				// Exibe o menu de opções
+				System.out.println("\n--- Menu ---");
+				System.out.println("1. JOIN");
+				System.out.println("2. SEARCH");
+				System.out.println("3. DOWNLOAD");
+				System.out.println("0. Sair");
+				System.out.print("Escolha uma opção: ");
+				int option = scanner.nextInt();
+				List<String> extensoesValidas = List.of(".doc", ".pdf", ".txt", "mp3", "mp4"); // Exemplo de extensões válidas
+
+				switch (option) {
+				case 1:
+					// Requisição JOIN
+					System.out.print("Digite o nome do peer para se juntar: ");
+					String peerName = scanner.next();
+					System.out.print("Digite o nome do arquivo a ser enviado: ");
+					String fileName = scanner.next();
+
+				    boolean extensaoValida1 = false;
+					for (String extensao : extensoesValidas) {
+						if (fileName.endsWith(extensao)) {
+							extensaoValida1 = true;
+							break;
+						}
+					}
+
+					if (extensaoValida1) {
+						fileTransfer.join(peerName, fileName, ip, porta);
+
+						FileTransfer server1 = (FileTransfer) registry.lookup("FileTransfer");
+						boolean joinResult = server1.join(peerName, fileName, ip, porta);
+						if (joinResult == true) { //JOIN_OK
+							System.out.println();
+							System.out.println("Sou peer " + ip + " : " + porta + " com arquivos " + fileName + ".");
+						} else if (joinResult == false) {
+							System.out.println();
+							System.out.println("JOIN_NOK"); //JOIN_NOK
+						}
+						break;
+
+					} else {
+						System.out.println("Erro: O nome do arquivo não possui uma extensão válida ou a extensão utilizada não é suportada.");
+						break;
+					}
+
+				case 2:
+					// Requisição SEARCH
+					System.out.print("Digite o nome do arquivo a ser pesquisado: ");
+					String filename = scanner.next();
+					
+					boolean extensaoValida2 = false;
+					for (String extensao : extensoesValidas) {
+						if (filename.endsWith(extensao)) {
+							extensaoValida2 = true;
+							break;
+						}
+					}
+					
+					if (extensaoValida2) {
+						fileTransfer.search(filename, ip, porta);
+
+						FileTransfer server2 = (FileTransfer) registry.lookup("FileTransfer");
+						List<String> searchResult = server2.search(filename, ip, porta);
+
+						if (searchResult.isEmpty()) {
+							System.out.println("Arquivo não encontrado em nenhum peer.");
+						} else {
+							System.out.println("Arquivo encontrado nos seguintes peers: " + searchResult);
+						}
+						break;
+						
+					} else {
+						System.out.println("Erro: O nome do arquivo não possui uma extensão válida ou a extensão utilizada não é suportada.");
+						break;
+					}
+					
+				case 3:
+					// Requisição DOWNLOAD
+					System.out.print("Digite o nome do arquivo a ser baixado: ");
+                    String downloadFileName = scanner.next();
+
+                    List<String> downloadPeers = fileTransfer.search(downloadFileName, ip, porta);
+                    if (downloadPeers.isEmpty()) {
+                        System.out.println("Arquivo não encontrado em nenhum peer.");
+                    } else {
+                        System.out.println("Arquivo encontrado nos seguintes peers: " + downloadPeers);
+                        System.out.print("Digite o nome do peer de download: ");
+                        String downloadPeer = scanner.next();
+                        System.out.print("Digite o IP do peer de download: ");
+                        String peerIP = scanner.next();
+                        System.out.print("Digite a porta do peer de download: ");
+                        int peerPort = scanner.nextInt();
+                        
+                        try (Socket socket = new Socket(peerIP, peerPort)) {
+                        	
+                            // Envia a requisição de download ao peer
+                            OutputStream outputStream = socket.getOutputStream();
+                            outputStream.write(downloadFileName.getBytes());
+                            outputStream.flush();
+
+                            // Lê o arquivo do peer e salva localmente
+                            InputStream inputStream = socket.getInputStream();
+                            byte[] fileData = inputStream.readAllBytes();
+                            String filePath = "./Downloads/" + downloadFileName;
+                            FileOutputStream fileOutputStream = new FileOutputStream(filePath);
+                            fileOutputStream.write(fileData);
+                            fileOutputStream.close();
+                            
+                            System.out.println("Arquivo " + downloadFileName + " baixado com sucesso.");
+                            
+                        } catch (IOException e) {
+                            System.out.println("Falha ao baixar o arquivo: " + e.getMessage());
+                        }
+                        
+                        
+                        /*
+                        // Verifica se o peer escolhido está disponível para download
+                        if (downloadPeers.contains(downloadPeer)) {
+                        	
+                            // Requisita o arquivo ao peer escolhido
+                            byte[] fileData = fileTransfer.downloadFile(downloadPeer, downloadFileName, ip, porta);
+
+                            // Verifica se o arquivo foi recebido com sucesso
+                            if (fileData != null) {
+                            	
+                                // Salva o arquivo em uma pasta
+                                String filePath = "./downloads/" + downloadFileName;
+                                FileOutputStream fileOutputStream = new FileOutputStream(filePath);
+                                fileOutputStream.write(fileData);
+                                fileOutputStream.close();
+                                System.out.println("Arquivo baixado com sucesso em: " + filePath);
+                            } else {
+                                System.out.println("Erro ao baixar o arquivo do peer.");
+                            }
+                        } else {
+                            System.out.println("O peer selecionado não possui o arquivo desejado.");
+                        }*/
+                    }
+                    break;
+
+
+				case 0:
+					// Sair
+					System.out.println("Encerrando o peer.");
+					scanner.close();
+					System.exit(0);
+
+				default:
+					System.out.println("Opção inválida. Tente novamente.");
+					break;
+				}
+			}
+		} catch (
+
+		Exception e) {
+			e.printStackTrace();
+		}
+	}
+}
