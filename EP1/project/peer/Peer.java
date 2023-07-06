@@ -1,5 +1,7 @@
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.net.InetAddress;
@@ -73,7 +75,9 @@ public class Peer {
 				System.out.println("0. Sair");
 				System.out.print("Escolha uma opção: ");
 				// int option = scanner.nextInt();
-				List<String> extensoesValidas = List.of(".doc", ".pdf", ".txt", "mp3", "mp4"); // Exemplo de extensões
+				//List<String> extensoesValidas = List.of(".doc", ".pdf", ".txt", "mp3", "mp4"); // Exemplo de extensões
+				List<String> extensoesValidas = new ArrayList<>(Arrays.asList(".doc", ".pdf", ".txt", "mp3", "mp4"));
+
 																								// válidas
 				// Verifica se o próximo valor é um número inteiro
 				if (scanner.hasNextInt()) {
