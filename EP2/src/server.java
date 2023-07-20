@@ -13,6 +13,7 @@ import java.util.Map;
 
 // Interface remota para transferência de arquivos
 interface FileTransfer extends java.rmi.Remote {
+	
     // Método para baixar um arquivo do peer remoto
     byte[] downloadFile(String peerName, String fileName, String ip, int porta) throws RemoteException;
 
@@ -95,7 +96,7 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
     }
 
     // Método para um peer remoto se juntar ao servidor central
-    public boolean join(String peerName, String fileName, String ip, int porta) throws RemoteException {
+    public boolean put(String peerName, String fileName, String ip, int porta) throws RemoteException {
         System.out.println("Peer " + ip + ":" + porta + " adicionado com arquivos " + fileName + ".");
         PeerInfo peer = getPeerByName(peerName);
 
@@ -113,7 +114,7 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
     }
 
     // Método para procurar por arquivos em peers remotos
-    public List<String> search(String fileName, String ip, int porta) throws RemoteException {
+    public List<String> get(String fileName, String ip, int porta) throws RemoteException {
         System.out.println("Peer " + ip + ":" + porta + " solicitou arquivo " + fileName + ".");
         List<String> peersWithFile = new ArrayList<>();
 
@@ -123,12 +124,6 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
             }
         }
         return peersWithFile;
-    }
-
-    // Método para atualizar um arquivo no servidor central
-    public boolean update(String filename) throws RemoteException {
-        return false;
-        // Lógica para atualização do arquivo
     }
 
     // Método para baixar um arquivo do peer remoto
@@ -164,7 +159,7 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
     }
 }
 
-public class CentralServer {
+public class server {
     public static void main(String[] args) throws NotBoundException {
         try {
             // Inicializar o registro RMI

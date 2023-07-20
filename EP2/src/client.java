@@ -1,6 +1,9 @@
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -10,15 +13,20 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 
-public class Peer {
+public class client {
 	private static final String SERVER_HOST = "localhost";
-	private static final int SERVER_PORT = 1099;
+	private static final int SERVER_A_PORT = 10097;
+	private static final int SERVER_B_PORT = 10098;
+	private static final int SERVER_C_PORT = 10099;
+	int[] serversList = { SERVER_A_PORT, SERVER_B_PORT, SERVER_C_PORT };
+
 	private ServerSocket serverSocket;
 
 	public void start() {
-		// Obter o endereço IP
+		// Obter o endereço IP da máquina que está executando o client.java
 		String ip = "";
 		try {
 			InetAddress address = InetAddress.getLocalHost();
@@ -27,7 +35,7 @@ public class Peer {
 			e.printStackTrace();
 		}
 
-		// Obter a porta
+		// Obter a porta disponível 
 		int porta = 0;
 		try (ServerSocket socket = new ServerSocket(0)) {
 			porta = socket.getLocalPort();
@@ -36,30 +44,6 @@ public class Peer {
 		}
 
 		try {
-			// Inicia o servidor
-			serverSocket = new ServerSocket(0); // Porta aleatória
-			int portaPeerServer = serverSocket.getLocalPort();
-			System.out.println("Peer-server iniciado na porta " + portaPeerServer);
-
-			// Inicia uma thread para tratar as conexões de outros peers
-			Thread serverThread = new Thread(() -> {
-				while (true) {
-					try {
-						Socket clientSocket = serverSocket.accept();
-						handleRequest(clientSocket);
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-			});
-			serverThread.start();
-
-			// Obtém a referência para o registro RMI do servidor
-			Registry registry = LocateRegistry.getRegistry(SERVER_HOST, SERVER_PORT);
-			// Registry registry = LocateRegistry.getRegistry(serverHost, serverPort);
-
-			// Obtém a referência para o objeto remoto FileTransfer no servidor
-			FileTransfer fileTransfer = (FileTransfer) registry.lookup("FileTransfer");
 
 			// Cria um objeto Scanner para receber as entradas do usuário
 			Scanner scanner = new Scanner(System.in);
@@ -67,104 +51,89 @@ public class Peer {
 			while (true) {
 				// Exibe o menu de opções
 				System.out.println("\n--- Menu ---");
-				System.out.println("1. JOIN");
-				System.out.println("2. SEARCH");
-				System.out.println("3. DOWNLOAD");
+				System.out.println("1. INIT");
+				System.out.println("2. PUT");
+				System.out.println("3. GET");
 				System.out.println("0. Sair");
 				System.out.print("Escolha uma opção: ");
-				// int option = scanner.nextInt();
-				List<String> extensoesValidas = List.of(".doc", ".pdf", ".txt", "mp3", "mp4"); // Exemplo de extensões
-																								// válidas
+				List<String> extensoesValidas = new ArrayList<>(Arrays.asList(".doc", ".pdf", ".txt", "mp3", "mp4"));
+
 				// Verifica se o próximo valor é um número inteiro
 				if (scanner.hasNextInt()) {
 					int option = scanner.nextInt();
 
 					switch (option) {
 					case 1:
-						// Requisição JOIN
-						System.out.print("Digite o nome do peer para se juntar: ");
-						String peerName = scanner.next();
-						System.out.print("Digite o nome do arquivo a ser enviado: ");
-						String fileName = scanner.next();
+						// Opção INIT
 
-						boolean extensaoValida1 = false;
-						for (String extensao : extensoesValidas) {
-							if (fileName.endsWith(extensao)) {
-								extensaoValida1 = true;
-								break;
+						// Inicialização do servidor em uma Porta Aleatória
+						serverSocket = new ServerSocket(0);
+						int portaPeerServer = serverSocket.getLocalPort();
+						System.out.println("Peer-server iniciado na porta " + portaPeerServer);
+
+						// Inicia uma thread para tratar as conexões de outros peers
+						Thread serverThread = new Thread(() -> {
+							while (true) {
+								try {
+									Socket clientSocket = serverSocket.accept();
+									handleRequest(clientSocket);
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
 							}
-						}
+						});
+						serverThread.start();
 
-						if (extensaoValida1) {
-							fileTransfer.join(peerName, fileName, ip, porta);
+						//Escolha um server aleatório para fazer a requisição PUT ou GET
+						Random random = new Random();
+						int randomIndex = random.nextInt(serversList.length); // Gere um índice aleatório entre 0 (inclusive) e o tamanho da matriz (exclusive)
+						int randomServer = serversList[randomIndex]; // Acesse o valor aleatório na matriz usando o índice gerado
 
-							FileTransfer server1 = (FileTransfer) registry.lookup("FileTransfer");
-							boolean joinResult = server1.join(peerName, fileName, ip, porta);
-							if (joinResult == true) { // JOIN_OK
-								System.out.println();
-								System.out
-										.println("Sou peer " + ip + " : " + porta + " com arquivos " + fileName + ".");
-							} else if (joinResult == false) {
-								System.out.println();
-								System.out.println("JOIN_NOK"); // JOIN_NOK
-							}
-							break;
+						// Obtém a referência para o registro RMI do servidor
+						Registry registry = LocateRegistry.getRegistry(SERVER_HOST, randomServer);
 
-						} else {
-							System.out.println(
-									"Erro: O nome do arquivo não possui uma extensão válida ou a extensão utilizada não é suportada.");
-							break;
-						}
+						// Obtém a referência para o objeto remoto FileTransfer no servidor
+						FileTransfer fileTransfer = (FileTransfer) registry.lookup("FileTransfer");
 
 					case 2:
-						// Requisição SEARCH
-						System.out.print("Digite o nome do arquivo a ser pesquisado: ");
-						String filename = scanner.next();
+						// Requisição PUT
+						System.out.print("Digite a Key: ");
+						String key = scanner.next();
+						System.out.print("Digite o Value: ");
+						String value = scanner.next();
 
-						boolean extensaoValida2 = false;
-						for (String extensao : extensoesValidas) {
-							if (filename.endsWith(extensao)) {
-								extensaoValida2 = true;
-								break;
-							}
+						//Envia os dados (key, value, timestamp) para o endereço definido (ip, porta)
+						long timestamp_do_client = System.currentTimeMillis();
+						fileTransfer.put(key, value, ip, porta, timestamp_do_client);
+						FileTransfer serverPUT = (FileTransfer) registry.lookup("FileTransfer");
+						boolean putResult = serverPUT.put(key, value, ip, porta);
+
+						if (putResult == true) {
+							System.out.println();
+							System.out.println("PUT_OK key:" + key + "value" + value + "timestamp" + timestamp_do_client + "realizada no servidor [" + ip + ":" + porta + "].");
+
+						} else if (putResult == false) {
+							System.out.println();
+							System.out.println("PUT_NOK key:" + key + errorMessage + "error.");
 						}
 
-						if (extensaoValida2) {
-							fileTransfer.search(filename, ip, porta);
-
-							FileTransfer server2 = (FileTransfer) registry.lookup("FileTransfer");
-							List<String> searchResult = server2.search(filename, ip, porta);
-
-							if (searchResult.isEmpty()) {
-								System.out.println("Arquivo não encontrado em nenhum peer.");
-							} else {
-								System.out.println("Arquivo encontrado nos seguintes peers: " + searchResult);
-							}
-							break;
-
-						} else {
-							System.out.println(
-									"Erro: O nome do arquivo não possui uma extensão válida ou a extensão utilizada não é suportada.");
-							break;
-						}
+						// Fecha a conexão com o server.java
+						serverSocket.close();
 
 					case 3:
-						// Requisição DOWNLOAD
-						System.out.print("Digite o nome do arquivo a ser baixado: ");
-						String downloadFileName = scanner.next();
+						// Requisição GET
+						System.out.print("Digite a Key: ");
+						String searchKey = scanner.next();
+						
 
-						List<String> downloadPeers = fileTransfer.search(downloadFileName, ip, porta);
-						if (downloadPeers.isEmpty()) {
-							System.out.println("Arquivo não encontrado em nenhum peer.");
+						long timestampGET = System.currentTimeMillis();
+						List<String> returnKeys = fileTransfer.get(searchKey, ip, porta, timestampGET);
+						if (returnKeys.isEmpty()) {
+							System.out.println(null);
 						} else {
-							System.out.println("Arquivo encontrado nos seguintes peers: " + downloadPeers);
-							System.out.print("Digite o nome do peer de download: ");
-							String downloadPeer = scanner.next();
-							System.out.print("Digite o IP do peer de download: ");
-							String peerIP = scanner.next();
-							System.out.print("Digite a porta do peer de download: ");
-							int peerPort = scanner.nextInt();
-
+							System.out.println("GET key: " + key + "value: " + value + "obtido do servidor [" + ip + ":" + porta + "], meu timestamp " + timestamp_do_client + "e do servidor " + timestamp_do_server);
+							System.out.println("Arquivo encontrado nos seguintes peers: " + returnKeys);
+							
 							try (Socket socket = new Socket(peerIP, peerPort)) {
 
 								// Cria o OutputStream para enviar a mensagem TCP
@@ -257,7 +226,7 @@ public class Peer {
 			System.out.print("Deseja enviar o arquivo: ");
 			String choice = scanner.next();
 			scanner.close();
-			
+
 			System.out.print("Informe o path do arquivo: ");
 			String path = scanner.next();
 			scanner.close();
@@ -322,7 +291,7 @@ public class Peer {
 	}
 
 	public static void main(String[] args) {
-		Peer peer = new Peer();
+		client peer = new client();
 		peer.start();
 	}
 }
