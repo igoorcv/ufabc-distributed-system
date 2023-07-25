@@ -56,7 +56,6 @@ public class client {
 				System.out.println("3. GET");
 				System.out.println("0. Sair");
 				System.out.print("Escolha uma opção: ");
-				List<String> extensoesValidas = new ArrayList<>(Arrays.asList(".doc", ".pdf", ".txt", "mp3", "mp4"));
 
 				// Verifica se o próximo valor é um número inteiro
 				if (scanner.hasNextInt()) {
@@ -95,6 +94,8 @@ public class client {
 						// Obtém a referência para o objeto remoto FileTransfer no servidor
 						FileTransfer fileTransfer = (FileTransfer) registry.lookup("FileTransfer");
 
+						break;
+
 					case 2:
 						// Requisição PUT
 						System.out.print("Digite a Key: ");
@@ -102,7 +103,7 @@ public class client {
 						System.out.print("Digite o Value: ");
 						String value = scanner.next();
 
-						//Envia os dados (key, value, timestamp) para o endereço definido (ip, porta)
+						//Obtém e envia os dados (key, value, timestamp) para o endereço definido (ip, porta)
 						long timestamp_do_client = System.currentTimeMillis();
 						fileTransfer.put(key, value, ip, porta, timestamp_do_client);
 						FileTransfer serverPUT = (FileTransfer) registry.lookup("FileTransfer");
@@ -120,43 +121,21 @@ public class client {
 						// Fecha a conexão com o server.java
 						serverSocket.close();
 
+						break;
+
 					case 3:
 						// Requisição GET
 						System.out.print("Digite a Key: ");
 						String searchKey = scanner.next();
 						
-
 						long timestampGET = System.currentTimeMillis();
 						List<String> returnKeys = fileTransfer.get(searchKey, ip, porta, timestampGET);
+
 						if (returnKeys.isEmpty()) {
 							System.out.println(null);
 						} else {
 							System.out.println("GET key: " + key + "value: " + value + "obtido do servidor [" + ip + ":" + porta + "], meu timestamp " + timestamp_do_client + "e do servidor " + timestamp_do_server);
 							System.out.println("Arquivo encontrado nos seguintes peers: " + returnKeys);
-							
-							try (Socket socket = new Socket(peerIP, peerPort)) {
-
-								// Cria o OutputStream para enviar a mensagem TCP
-								OutputStream outputStream = socket.getOutputStream();
-								
-								// Converte a mensagem para um array de bytes
-								String mensagem = "Envie-me o arquivo " + downloadFileName + " para download?";
-								byte[] mensagemBytes = mensagem.getBytes();
-																
-								// Envia a requisição de download ao peer. Variavel request.
-								outputStream.write(mensagemBytes);
-								outputStream.write(downloadFileName.getBytes());
-								outputStream.flush();
-								
-								// Lê o arquivo do peer e salva localmente
-								
-								handleRequest(socket);
-
-								System.out.println("Arquivo " + downloadFileName + " baixado com sucesso.");
-
-							} catch (IOException e) {
-								System.out.println("Falha ao baixar o arquivo: " + e.getMessage());
-							}
 						}
 						break;
 
@@ -165,6 +144,7 @@ public class client {
 						System.out.println("Encerrando o peer.");
 						scanner.close();
 						System.exit(0);
+						break;
 
 					default:
 						System.out.println("Opção inválida1. Tente novamente.");
@@ -177,9 +157,7 @@ public class client {
 				}
 
 			}
-		} catch (
-
-		Exception e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}

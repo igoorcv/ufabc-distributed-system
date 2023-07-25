@@ -13,29 +13,20 @@ import java.util.Map;
 
 // Interface remota para transferência de arquivos
 interface FileTransfer extends java.rmi.Remote {
-	
-    // Método para baixar um arquivo do peer remoto
-    byte[] downloadFile(String peerName, String fileName, String ip, int porta) throws RemoteException;
 
     // Método para procurar por arquivos em peers remotos
-    List<String> search(String fileName, String ip, int porta) throws RemoteException;
+    List<String> get(String searchKey, String ip, int porta, String timestampGET) throws RemoteException;
 
     // Método para um peer remoto se juntar ao servidor central
-    boolean join(String peerName, String fileName, String ip, int porta) throws RemoteException;
-
-    // Método para atualizar um arquivo no servidor central
-    boolean update(String filename) throws RemoteException;
-
-    // Método para receber um arquivo enviado por outro peer
-    void receiveFile(String peerName, String fileName, byte[] fileData) throws RemoteException;
+    boolean put(String key, String value, String ip, int porta, String timestamp_do_client) throws RemoteException;
 }
 
 // Classe para armazenar informações sobre um peer
-class PeerInfo {
+class ClientInfo {
     private String name;
     private List<String> files;
 
-    public PeerInfo(String name) {
+    public ClientInfo(String name) {
         this.name = name;
         this.files = new ArrayList<>();
     }
@@ -48,12 +39,6 @@ class PeerInfo {
 
     // Obtém o nome do peer
     public String getName(String peername) {
-        String name = new String(peername.toUpperCase());
-        return name;
-    }
-
-    // Obtém o nome do peer
-    public String getPeerName(String peername) {
         String name = new String(peername.toUpperCase());
         return name;
     }
@@ -76,12 +61,12 @@ class PeerInfo {
 
 // Implementação da interface remota FileTransfer
 class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
-    private List<PeerInfo> peers;
+    private List<ClientInfo> peers;
     private Map<String, String> nameFiles;
 
     // Obtém um peer pelo nome
-    private PeerInfo getPeerByName(String peerName) {
-        for (PeerInfo peer : peers) {
+    private ClientInfo getPeerByName(String peerName) {
+        for (ClientInfo peer : peers) {
             if (peer.getPeerName(peerName).equals(peerName)) {
                 return peer;
             }
@@ -98,13 +83,13 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
     // Método para um peer remoto se juntar ao servidor central
     public boolean put(String peerName, String fileName, String ip, int porta) throws RemoteException {
         System.out.println("Peer " + ip + ":" + porta + " adicionado com arquivos " + fileName + ".");
-        PeerInfo peer = getPeerByName(peerName);
+        ClientInfo peer = getPeerByName(peerName);
 
         if (peer != null) {
             System.out.println("Arquivos não adicionados.");
             return false;
         } else {
-            PeerInfo newPeer = new PeerInfo(peerName);
+            ClientInfo newPeer = new ClientInfo(peerName);
             newPeer.addFile(fileName);
             peers.add(newPeer);
             nameFiles.put(peerName, fileName);
@@ -118,30 +103,12 @@ class FileTransferImpl extends UnicastRemoteObject implements FileTransfer {
         System.out.println("Peer " + ip + ":" + porta + " solicitou arquivo " + fileName + ".");
         List<String> peersWithFile = new ArrayList<>();
 
-        for (PeerInfo peer : peers) {
+        for (ClientInfo peer : peers) {
             if (peer.hasFile(fileName)) {
                 peersWithFile.add(peer.getFileName(fileName));
             }
         }
         return peersWithFile;
-    }
-
-    // Método para baixar um arquivo do peer remoto
-    public byte[] downloadFile(String peerName, String fileName, String ip, int porta) throws RemoteException {
-        File file = new File(peerName + "_" + fileName);
-
-        try {
-            FileInputStream fileInputStream = new FileInputStream(file);
-            byte[] fileData = new byte[(int) file.length()];
-            fileInputStream.read(fileData);
-            fileInputStream.close();
-
-            return fileData;
-        } catch (Exception e) {
-            System.err.println("Erro ao ler o arquivo: " + e.toString());
-            e.printStackTrace();
-        }
-        return null;
     }
 
     // Método para receber um arquivo enviado por outro peer
